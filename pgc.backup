@@ -1,0 +1,270 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.3.14
+-- Dumped by pg_dump version 9.5.1
+
+-- Started on 2016-10-27 23:02:59
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+DROP DATABASE pgc;
+--
+-- TOC entry 1947 (class 1262 OID 27118)
+-- Name: pgc; Type: DATABASE; Schema: -; Owner: postgres
+--
+
+CREATE DATABASE pgc WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'Portuguese_Brazil.1252' LC_CTYPE = 'Portuguese_Brazil.1252';
+
+
+ALTER DATABASE pgc OWNER TO postgres;
+
+\connect pgc
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- TOC entry 6 (class 2615 OID 2200)
+-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+CREATE SCHEMA public;
+
+
+ALTER SCHEMA public OWNER TO postgres;
+
+--
+-- TOC entry 1948 (class 0 OID 0)
+-- Dependencies: 6
+-- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON SCHEMA public IS 'standard public schema';
+
+
+--
+-- TOC entry 1 (class 3079 OID 11750)
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- TOC entry 1950 (class 0 OID 0)
+-- Dependencies: 1
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+SET search_path = public, pg_catalog;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- TOC entry 172 (class 1259 OID 27127)
+-- Name: Grupo; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE "Grupo" (
+    "CD_Grupo" integer NOT NULL,
+    "NM_Grupo" character varying(100)
+);
+
+
+ALTER TABLE "Grupo" OWNER TO postgres;
+
+--
+-- TOC entry 179 (class 1255 OID 27137)
+-- Name: sp_getallgroups(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION sp_getallgroups() RETURNS SETOF "Grupo"
+    LANGUAGE sql
+    AS $$
+    select "CD_Grupo", "NM_Grupo" from "Grupo"
+$$;
+
+
+ALTER FUNCTION public.sp_getallgroups() OWNER TO postgres;
+
+--
+-- TOC entry 187 (class 1255 OID 27164)
+-- Name: sp_getuser(character varying, character varying); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION sp_getuser(email character varying, senha character varying, OUT nome character varying, OUT resultado integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+ BEGIN
+  -- saida 0: sucesso
+  -- saida 1: nao existe usuario cadastrado
+  -- saida 2: existe usuario, mas senha incorreta
+  
+   IF EXISTS (select 1 from "Usuario" where "Email" = email) THEN
+       resultado := 0;
+   ELSE
+       resultado := 1;
+   END IF;
+ 
+   IF resultado = 0 THEN 
+      IF EXISTS (select * from "Usuario" where "Email" = email and "Senha" = senha) THEN
+         select into nome "Nome" from "Usuario" where "Email" = email and "Senha" = senha;
+      ELSE
+         resultado := 2;
+      END IF;
+   END IF;
+END;
+$$;
+
+
+ALTER FUNCTION public.sp_getuser(email character varying, senha character varying, OUT nome character varying, OUT resultado integer) OWNER TO postgres;
+
+--
+-- TOC entry 186 (class 1255 OID 27139)
+-- Name: sp_insertuser(character varying, character varying, character varying, character varying); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION sp_insertuser(usuario character varying, senha character varying, email character varying, grupo character varying) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+
+declare resultado integer;
+declare idgrupo integer;
+declare cd_usuario integer;
+
+-- insercao bem sucedida: 0
+-- grupo desconhecido: -1
+-- usuario ja cadastrado(email): -2
+begin
+
+resultado := -1;
+idgrupo := 0;
+cd_usuario := -1;
+
+IF EXISTS (select * from "Usuario" where "Email"=email) THEN
+   resultado := -2;
+ELSE
+	select into cd_usuario count(*) from "Usuario";
+	IF cd_usuario > 0 THEN
+	   select into cd_usuario max("CD_Usuario") from "Usuario";
+	END IF;
+
+	cd_usuario := cd_usuario + 1;
+
+	select into idgrupo "CD_Grupo" from "Grupo" where "NM_Grupo" like grupo;
+
+	IF idgrupo <> 0 THEN 
+	   insert into "Usuario" values (cd_usuario, usuario, email, senha, idgrupo);
+	   resultado := 0;
+	END IF;
+END IF;
+
+return resultado;
+
+end;
+$$;
+
+
+ALTER FUNCTION public.sp_insertuser(usuario character varying, senha character varying, email character varying, grupo character varying) OWNER TO postgres;
+
+--
+-- TOC entry 171 (class 1259 OID 27119)
+-- Name: Usuario; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE "Usuario" (
+    "CD_Usuario" numeric(10,0) NOT NULL,
+    "Nome" character varying(400),
+    "Email" character varying(100),
+    "Senha" character varying(500),
+    "CD_Grupo" integer
+);
+
+
+ALTER TABLE "Usuario" OWNER TO postgres;
+
+--
+-- TOC entry 1942 (class 0 OID 27127)
+-- Dependencies: 172
+-- Data for Name: Grupo; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "Grupo" ("CD_Grupo", "NM_Grupo") VALUES (1, 'Orientador');
+INSERT INTO "Grupo" ("CD_Grupo", "NM_Grupo") VALUES (2, 'Aluno');
+INSERT INTO "Grupo" ("CD_Grupo", "NM_Grupo") VALUES (3, 'Secretaria');
+INSERT INTO "Grupo" ("CD_Grupo", "NM_Grupo") VALUES (4, 'Coordenador');
+
+
+--
+-- TOC entry 1941 (class 0 OID 27119)
+-- Dependencies: 171
+-- Data for Name: Usuario; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+INSERT INTO "Usuario" ("CD_Usuario", "Nome", "Email", "Senha", "CD_Grupo") VALUES (1, 'Marcio', 'marcio.oikawa@ufabc.edu.br', 'c8a2d029074842a6ef31d8d8b6e10714ee16d679f029986fce0bf2ac6a5ceac2', 1);
+INSERT INTO "Usuario" ("CD_Usuario", "Nome", "Email", "Senha", "CD_Grupo") VALUES (2, 'Marcio', 'miokawa@test.com', 'c8a2d029074842a6ef31d8d8b6e10714ee16d679f029986fce0bf2ac6a5ceac2', 1);
+
+
+--
+-- TOC entry 1832 (class 2606 OID 27131)
+-- Name: PK_Grupo; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY "Grupo"
+    ADD CONSTRAINT "PK_Grupo" PRIMARY KEY ("CD_Grupo");
+
+
+--
+-- TOC entry 1830 (class 2606 OID 27126)
+-- Name: PK_Usuario; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY "Usuario"
+    ADD CONSTRAINT "PK_Usuario" PRIMARY KEY ("CD_Usuario");
+
+
+--
+-- TOC entry 1833 (class 2606 OID 27132)
+-- Name: FK_Usuario_Grupo; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY "Usuario"
+    ADD CONSTRAINT "FK_Usuario_Grupo" FOREIGN KEY ("CD_Grupo") REFERENCES "Grupo"("CD_Grupo");
+
+
+--
+-- TOC entry 1949 (class 0 OID 0)
+-- Dependencies: 6
+-- Name: public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+
+
+-- Completed on 2016-10-27 23:02:59
+
+--
+-- PostgreSQL database dump complete
+--
+
